@@ -4,28 +4,52 @@ import * as am4core from "@amcharts/amcharts4/core";
 import * as am4charts from "@amcharts/amcharts4/charts";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 
+import { Quotation } from "./quotation";
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss']
+  styleUrls: ['./app.component.scss'],
+  providers: [Quotation]
 })
 export class AppComponent implements OnInit {
 
+  constructor(public quotationComponent: Quotation) { }
+
+  quotations: Set<any>;
+  i: number = 1;
+
   ngOnInit() {
-    /**
- * ---------------------------------------/* Chart code */
+
+    this.quotations = new Set<any>();
+
+    var id_of_interval = setInterval(() => {
+
+      this.quotations.add(this.quotationComponent.callAPI(this.i));
+      let lastQuotation = Array.from(this.quotations).pop();
+
+      if (lastQuotation.completionPercent < 100) {
+        console.log("affichage i : " + this.i);
+        this.quotations.forEach(element => {
+          console.log(element);
+        })
+        this.i++;
+      }
+      else if (lastQuotation.completionPercent == 100) {
+        console.log("affichage i : " + this.i);
+        this.quotations.forEach(element => {
+          console.log(element);
+        })
+        clearInterval(id_of_interval);
+      }
+    }, 2000);
+
     // Themes begin
     am4core.useTheme(am4themes_animated);
     // Themes end
 
     let chart = am4core.create("chartdiv", am4charts.XYChart);
     chart.padding(40, 40, 40, 40);
-
-    chart.numberFormatter.bigNumberPrefixes = [
-      { "number": 1e+3, "suffix": "K" },
-      { "number": 1e+6, "suffix": "M" },
-      { "number": 1e+9, "suffix": "B" }
-    ];
 
     let label = chart.plotContainer.createChild(am4core.Label);
     label.x = am4core.percent(97);
@@ -40,6 +64,7 @@ export class AppComponent implements OnInit {
     playButton.y = am4core.percent(95);
     playButton.dy = -2;
     playButton.verticalCenter = "middle";
+
     playButton.events.on("toggled", function (event) {
       if (event.target.isActive) {
         play();
@@ -48,8 +73,6 @@ export class AppComponent implements OnInit {
         stop();
       }
     })
-
-    let stepDuration = 4000;
 
     let categoryAxis = chart.yAxes.push(new am4charts.CategoryAxis());
     categoryAxis.renderer.grid.template.location = 0;
@@ -61,7 +84,7 @@ export class AppComponent implements OnInit {
     let valueAxis = chart.xAxes.push(new am4charts.ValueAxis());
     valueAxis.min = 0;
     valueAxis.rangeChangeEasing = am4core.ease.linear;
-    valueAxis.rangeChangeDuration = stepDuration;
+    valueAxis.rangeChangeDuration = 2000;
     valueAxis.extraMax = 0.1;
 
     let series = chart.series.push(new am4charts.ColumnSeries());
@@ -71,7 +94,7 @@ export class AppComponent implements OnInit {
     series.columns.template.strokeOpacity = 0;
     series.columns.template.column.cornerRadiusBottomRight = 5;
     series.columns.template.column.cornerRadiusTopRight = 5;
-    series.interpolationDuration = stepDuration;
+    series.interpolationDuration = 2000;
     series.interpolationEasing = am4core.ease.linear;
 
     let labelBullet = series.bullets.push(new am4charts.LabelBullet())
@@ -94,9 +117,9 @@ export class AppComponent implements OnInit {
 
     function play() {
       interval = setInterval(function () {
-        nextYear();
-      }, stepDuration)
-      nextYear();
+        nextQuotation();
+      }, 2000)
+      nextQuotation();
     }
 
     function stop() {
@@ -105,8 +128,9 @@ export class AppComponent implements OnInit {
       }
     }
 
-    function nextYear() {
-      year++
+    function nextQuotation() {
+
+      year++;
 
       if (year > 2018) {
         year = 2003;
@@ -122,12 +146,12 @@ export class AppComponent implements OnInit {
       }
 
       if (year == 2003) {
-        series.interpolationDuration = stepDuration / 4;
-        valueAxis.rangeChangeDuration = stepDuration / 4;
+        series.interpolationDuration = 2000 / 4;
+        valueAxis.rangeChangeDuration = 2000 / 4;
       }
       else {
-        series.interpolationDuration = stepDuration;
-        valueAxis.rangeChangeDuration = stepDuration;
+        series.interpolationDuration = 2000;
+        valueAxis.rangeChangeDuration = 2000;
       }
 
       chart.invalidateRawData();
@@ -135,7 +159,6 @@ export class AppComponent implements OnInit {
 
       categoryAxis.zoom({ start: 0, end: itemsWithNonZero / categoryAxis.dataItems.length });
     }
-
 
     categoryAxis.sortBySeries = series;
 
