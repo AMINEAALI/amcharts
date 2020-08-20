@@ -2,6 +2,9 @@ import { Component, OnInit } from '@angular/core';
 
 import * as am4core from "@amcharts/amcharts4/core";
 import * as am4charts from "@amcharts/amcharts4/charts";
+import * as am4maps from "@amcharts/amcharts4/maps";
+import am4geodata_continentsHigh from "@amcharts/amcharts4-geodata/continentsHigh";
+import am4geodata_continentsLow from "@amcharts/amcharts4-geodata/continentsLow";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 
 import { Quotation } from "./quotation";
@@ -18,36 +21,29 @@ export class AppComponent implements OnInit {
   constructor(public quotationComponent: Quotation, public providersComponent: Providers) { }
 
   providers: any = this.providersComponent.providers;
-
-  barchartsData: Set<any>;
   quotations: Set<any>;
+
   i: number = 1;
-  j: number = 0;
-  k: number = 0;
+  quotation_id: number = 1;
 
   chart: am4charts.XYChart;
+  categoryAxis: am4charts.CategoryAxis;
   completionPercent: number;
-
-  charts_data: Set<any>;
-
-  names = ["Instagram", "TikTok", "Twitter", "Tumblr"]
 
   ngOnInit() {
 
-    am4core.useTheme(am4themes_animated);
+    // ---------------- DATA ---------------- //
 
-    this.charts_data = new Set<any>();
     this.quotations = new Set<any>();
-    this.barchartsData = new Set<any>();
   
     var id_of_interval = setInterval(() => {
 
       let API_response = this.quotationComponent.callAPI(this.i);
       this.completionPercent = API_response.completionPercent;
 
-      API_response.results.forEach(result => {
-        this.quotations.add(result);
-      })
+      API_response.results.forEach(quotation => {
+        this.quotations.add(quotation);
+      });
 
       if (this.completionPercent < 100) {
         this.i++;
@@ -58,106 +54,130 @@ export class AppComponent implements OnInit {
       }
     }, 1000);
 
-    let chart = am4core.create("chartdiv", am4charts.XYChart);
-    chart.padding(40, 40, 40, 40);
+    // ---------------- ---- ---------------- //
 
-    var itemsWithNonZero = 0;
-    for (var i = 0; i < chart.data.length; i++) {
-      if (chart.data[i].MAU > 0) {
-        itemsWithNonZero++;
-      }
-    }
+    am4core.useTheme(am4themes_animated);
 
-    let categoryAxis = chart.yAxes.push(new am4charts.CategoryAxis());
-    categoryAxis.renderer.grid.template.location = 0;
-    categoryAxis.dataFields.category = "network";
-    categoryAxis.renderer.minGridDistance = 1;
-    categoryAxis.renderer.inversed = true;
-    categoryAxis.renderer.grid.template.disabled = true;
+    var container = am4core.create("container", am4core.Container);
+    container.width = am4core.percent(100);
+    container.height = am4core.percent(100);
 
-    let valueAxis = chart.xAxes.push(new am4charts.ValueAxis());
+    // ---------------- MAP ----------------- //
+
+    let mapChart = container.createChild(am4maps.MapChart);
+    mapChart.projection = new am4maps.projections.Miller();
+    mapChart.geodata = am4geodata_continentsHigh;
+    mapChart.mouseWheelBehavior = "none";
+    mapChart.background.pixelPerfect = true;
+    mapChart.background.fill = am4core.color("#91c2dc");
+    mapChart.background.fillOpacity = 1;
+    mapChart.chartContainer.wheelable = false;
+    mapChart.homeZoomLevel = 3.5;
+    mapChart.homeGeoPoint = { longitude: -20, latitude: 52 };
+
+    var polygonSeries = mapChart.series.push(new am4maps.MapPolygonSeries());
+    polygonSeries.mapPolygons.template.fill = am4core.color("#FFFFFF");
+    polygonSeries.exclude = ["antarctica"];
+    polygonSeries.useGeodata = true;
+
+    let mapImageSeries = mapChart.series.push(new am4maps.MapImageSeries());
+
+    var imageTemplate = mapImageSeries.mapImages.template;
+    imageTemplate.propertyFields.longitude = "longitude";
+    imageTemplate.propertyFields.latitude = "latitude";
+    imageTemplate.nonScaling = true;
+
+    var imageMap = imageTemplate.createChild(am4core.Image);
+    imageMap.propertyFields.href = "imageURL";
+    imageMap.horizontalCenter = "middle";
+    imageMap.verticalCenter = "middle";
+    imageMap.height = 50;
+    imageMap.width = 50;
+
+    // ---------------- BAR CHART ------------ //
+
+    this.chart = container.createChild(am4charts.XYChart);
+    this.chart.padding(0, 50, 250, 10);
+    this.chart.valign = "bottom";
+    this.chart.height = 800;
+    this.chart.width = 1000;
+    this.chart.mouseWheelBehavior = "panY";
+    this.chart.zoomOutButton.disabled = true;
+
+    this.chart.scrollbarY = new am4core.Scrollbar();
+    this.chart.scrollbarY.startGrip.disabled = true;
+    this.chart.scrollbarY.endGrip.disabled = true;
+    this.chart.scrollbarY.parent = this.chart.leftAxesContainer;
+    this.chart.scrollbarY.mouseOptions.sensitivity = 100;
+
+    this.categoryAxis = this.chart.yAxes.push(new am4charts.CategoryAxis());
+    this.categoryAxis.renderer.labels.template.disabled = true;
+    this.categoryAxis.dataFields.category = "id";
+    this.categoryAxis.renderer.grid.template.location = 0;
+    this.categoryAxis.renderer.grid.template.disabled = true;
+    
+    let valueAxis = this.chart.xAxes.push(new am4charts.ValueAxis());
     valueAxis.min = 0;
+    valueAxis.renderer.ticks.template.disabled = false;
+    valueAxis.renderer.labels.template.fill = am4core.color("#303030");
+    valueAxis.renderer.grid.template.disabled = true;
     valueAxis.rangeChangeEasing = am4core.ease.linear;
     valueAxis.rangeChangeDuration = 1000;
 
-    let series = chart.series.push(new am4charts.ColumnSeries());
-    series.dataFields.categoryY = "network";
-    series.dataFields.valueX = "MAU";
-    series.tooltipText = "{valueX.value}"
-    series.columns.template.strokeOpacity = 0;
-    series.columns.template.column.cornerRadiusBottomRight = 5;
-    series.columns.template.column.cornerRadiusTopRight = 5;
+    let series = this.chart.series.push(new am4charts.ColumnSeries());
+    series.columns.template.propertyFields.fill = "color";
+    series.columns.template.propertyFields.stroke = "color";
+    series.columns.template.focusable = true;
+    series.columns.template.column.fillOpacity = .7;
+    series.columns.template.column.cornerRadiusTopRight = 3;
+    series.columns.template.tooltipText = "{country} - {location}";
+    series.columns.template.column.cornerRadiusBottomRight = 3;
+    series.columns.template.cursorOverStyle = am4core.MouseCursorStyle.pointer;
+    series.dataFields.valueX = "total";
+    series.dataFields.categoryY = "id";
+    series.clustered = false;
     series.interpolationDuration = 1000;
     series.interpolationEasing = am4core.ease.linear;
 
-    categoryAxis.sortBySeries = series;
-    chart.data = [
-      {
-        "network": "Facebook",
-        "MAU": 0
-      },
-      {
-        "network": "Flickr",
-        "MAU": 0
-      },
-      {
-        "network": "Google Buzz",
-        "MAU": 0
-      },
-      {
-        "network": "Friendster",
-        "MAU": 0
-      }
-    ];
-    
-    let labelBullet = series.bullets.push(new am4charts.LabelBullet());
-    labelBullet.label.horizontalCenter = "left";
-    labelBullet.label.dx = 10;
-    labelBullet.label.text = "{values.valueX.workingValue.formatNumber('#.0as')}";
-    labelBullet.locationX = 1;
+    let hoverState = series.columns.template.column.states.create("hover");
+    hoverState.properties.cornerRadiusTopLeft = 0;
+    hoverState.properties.cornerRadiusTopRight = 0;
+    hoverState.properties.fillOpacity = 1;
 
-    chart.zoomOutButton.disabled = true;
+    this.categoryAxis.sortBySeries = series;
 
-    // as by default columns of the same series are of the same color, we add adapter which takes colors from chart.colors color set
-    series.columns.template.adapter.add("fill", function (fill, target) {
-      return chart.colors.getIndex(target.dataItem.index);
-    });
+    let bullet = series.bullets.push(new am4charts.Bullet());
+    let image = bullet.createChild(am4core.Image);
 
-    let id_interval = setInterval(() => {
-      if (this.j == 4) {
-        clearInterval(id_interval);
-      }
-      else {
-        chart.data[this.j].MAU = (this.j+1*this.j)+1*4;
-        chart.invalidateRawData();
-        this.j++;
-      }
-    }, 1000);
+    image.horizontalCenter = "middle";
+    image.verticalCenter = "bottom";
+    image.dy = 20;
+    image.height = 30;
+    image.y = am4core.percent(100);
+    image.propertyFields.href = "bullet";
+    image.tooltipText = series.columns.template.tooltipText;
+    image.propertyFields.fill = "color";
+    image.filters.push(new am4core.DropShadowFilter());
 
-    let encore_un_autre_id = setInterval(() => {
-      if (this.k == 4) {
-        clearInterval(encore_un_autre_id);
-      }
-      else {
-        var nouvelleValeur = chart.data[chart.data.length-1].MAU + 3;
-        chart.addData({
-          network: this.names[this.k],
-          MAU: nouvelleValeur
-        });
-        this.k++;
-        chart.invalidateRawData();
-      }
-    }, 1000);
-  }
+    // CE QUI EST INDIQUE SUR LES BAR
+
+    var serieLabel = series.bullets.push(new am4charts.LabelBullet());
+
+    serieLabel.label.text = "[bold]{total}[/b] {scenarioName} - {providerRegionCode}";
+    serieLabel.label.hideOversized = false;
+    serieLabel.label.horizontalCenter = "right";
+    serieLabel.label.dx = -25;
+    serieLabel.label.fill = am4core.color("#ffffff");
+    serieLabel.label.cursorOverStyle = am4core.MouseCursorStyle.pointer;
+    serieLabel.interactionsEnabled = false;
+  } 
 
   nextQuotation() {
 
-    console.log(Array.from(this.quotations));
-
     this.quotations.forEach(quotation => {
 
-      var c = {
-        "id": quotation.id,
+      this.chart.addData({
+        "id": this.quotation_id,
         "total": quotation.pricesSummary.monthlyPriceAverage,
         "location": quotation.cityName,
         "providerRegionCode": quotation.providerRegionCode.charAt(0).toUpperCase() + quotation.providerRegionCode.slice(1),
@@ -168,13 +188,14 @@ export class AppComponent implements OnInit {
         "bullet": this.providers[quotation.provider].smallIcon,
         "opacity": 1,
         "scenarioName": quotation.scenarioName
-      }
+      });
 
-      this.barchartsData.add(c);
+      this.chart.dataSource.load();
 
-      this.chart.data = Array.from(this.barchartsData);
-
-      this.chart.invalidateRawData();
+      this.chart.validateData();
+      this.chart.validateRawData();
+      this.categoryAxis.zoomToIndexes(this.chart.data.length - 12, this.chart.data.length);
+      this.quotation_id++;
     });
   }
 }
