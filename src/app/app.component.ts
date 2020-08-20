@@ -101,15 +101,15 @@ export class AppComponent implements OnInit {
     this.chart.valign = "bottom";
     this.chart.height = 800;
     this.chart.width = 1000;
-    this.chart.mouseWheelBehavior = "panY";
     this.chart.zoomOutButton.disabled = true;
 
     this.chart.scrollbarY = new am4core.Scrollbar();
     this.chart.scrollbarY.startGrip.disabled = true;
     this.chart.scrollbarY.endGrip.disabled = true;
     this.chart.scrollbarY.parent = this.chart.leftAxesContainer;
-    this.chart.scrollbarY.mouseOptions.sensitivity = 100;
+    this.chart.scrollbarY.mouseOptions.sensitivity = 50; // <---------- this does not work at all
     this.chart.scrollbarY.wheelable = true;
+    this.chart.mouseWheelBehavior = "panY";
 
     this.categoryAxis = this.chart.yAxes.push(new am4charts.CategoryAxis());
     this.categoryAxis.renderer.labels.template.disabled = true;
