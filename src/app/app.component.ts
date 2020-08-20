@@ -109,6 +109,7 @@ export class AppComponent implements OnInit {
     this.chart.scrollbarY.endGrip.disabled = true;
     this.chart.scrollbarY.parent = this.chart.leftAxesContainer;
     this.chart.scrollbarY.mouseOptions.sensitivity = 100;
+    this.chart.scrollbarY.wheelable = true;
 
     this.categoryAxis = this.chart.yAxes.push(new am4charts.CategoryAxis());
     this.categoryAxis.renderer.labels.template.disabled = true;
