@@ -3,9 +3,9 @@ import { Component, OnInit } from '@angular/core';
 import * as am4core from "@amcharts/amcharts4/core";
 import * as am4charts from "@amcharts/amcharts4/charts";
 import * as am4maps from "@amcharts/amcharts4/maps";
-import am4geodata_continentsHigh from "@amcharts/amcharts4-geodata/continentsHigh";
-import am4geodata_continentsLow from "@amcharts/amcharts4-geodata/continentsLow";
+/* import am4geodata_worldHigh from "@amcharts/amcharts4-geodata/worldHigh"; */
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
+import am4geodata_continentsHigh from "@amcharts/amcharts4-geodata/continentsHigh";
 
 import { Quotation } from "./quotation";
 import { Providers } from './providers';
@@ -21,10 +21,11 @@ export class AppComponent implements OnInit {
   constructor(public quotationComponent: Quotation, public providersComponent: Providers) { }
 
   providers: any = this.providersComponent.providers;
-  quotations: Set<any>;
+  quotations: Array<any>;
 
   i: number = 1;
   quotation_id: number = 1;
+  index_quotation: number = 0;
 
   chart: am4charts.XYChart;
   categoryAxis: am4charts.CategoryAxis;
@@ -32,31 +33,40 @@ export class AppComponent implements OnInit {
 
   ngOnInit() {
 
+    am4core.useTheme(am4themes_animated);
+
     // ---------------- DATA ---------------- //
 
-    this.quotations = new Set<any>();
-  
     var id_of_interval = setInterval(() => {
+
+      this.quotations = [];
 
       let API_response = this.quotationComponent.callAPI(this.i);
       this.completionPercent = API_response.completionPercent;
 
-      API_response.results.forEach(quotation => {
-        this.quotations.add(quotation);
+      API_response.results.forEach((api_result_quotation, index) => {
+        if (index >= this.index_quotation)
+          this.quotations.push(api_result_quotation);
       });
 
+      if ( this.i > 1 ) {
+        this.quotations = this.quotations.slice(this.index_quotation);
+      }
+
       if (this.completionPercent < 100) {
-        this.i++;
+        this.index_quotation = this.quotations.length - 1;
         this.nextQuotation();
+        this.i++;
       }
       else if (this.completionPercent == 100) {
+        this.index_quotation = this.quotations.length - 1;
+        this.nextQuotation();
         clearInterval(id_of_interval);
       }
+
     }, 1000);
 
     // ---------------- ---- ---------------- //
-
-    am4core.useTheme(am4themes_animated);
 
     var container = am4core.create("container", am4core.Container);
     container.width = am4core.percent(100);
@@ -72,13 +82,25 @@ export class AppComponent implements OnInit {
     mapChart.background.fill = am4core.color("#91c2dc");
     mapChart.background.fillOpacity = 1;
     mapChart.chartContainer.wheelable = false;
-    mapChart.homeZoomLevel = 3.5;
-    mapChart.homeGeoPoint = { longitude: -20, latitude: 52 };
+    mapChart.homeZoomLevel = 5;
+    mapChart.homeGeoPoint = { longitude: -14, latitude: 52 };
 
     var polygonSeries = mapChart.series.push(new am4maps.MapPolygonSeries());
-    polygonSeries.mapPolygons.template.fill = am4core.color("#FFFFFF");
-    polygonSeries.exclude = ["antarctica"];
     polygonSeries.useGeodata = true;
+    polygonSeries.exclude = ["antarctica"];
+
+    var polygonTemplate = polygonSeries.mapPolygons.template;
+    polygonTemplate.strokeOpacity = 1;
+    polygonTemplate.fillOpacity = 0.5;
+
+    // Desaturate filter for countries
+    var desaturateFilter = new am4core.DesaturateFilter();
+    desaturateFilter.saturation = 0.25;
+    polygonTemplate.filters.push(desaturateFilter);
+    
+    // Set fillOpacity to 1 when hovered
+/*     var hoverStateMap = polygonTemplate.states.create("hover");
+    hoverStateMap.properties.fillOpacity = 1; */
 
     let mapImageSeries = mapChart.series.push(new am4maps.MapImageSeries());
 
@@ -107,7 +129,7 @@ export class AppComponent implements OnInit {
     this.chart.scrollbarY.startGrip.disabled = true;
     this.chart.scrollbarY.endGrip.disabled = true;
     this.chart.scrollbarY.parent = this.chart.leftAxesContainer;
-    this.chart.scrollbarY.mouseOptions.sensitivity = 50; // <---------- this does not work at all
+    this.chart.plotContainer.mouseOptions.sensitivity = 3;
     this.chart.scrollbarY.wheelable = true;
     this.chart.mouseWheelBehavior = "panY";
 
@@ -116,7 +138,7 @@ export class AppComponent implements OnInit {
     this.categoryAxis.dataFields.category = "id";
     this.categoryAxis.renderer.grid.template.location = 0;
     this.categoryAxis.renderer.grid.template.disabled = true;
-    
+
     let valueAxis = this.chart.xAxes.push(new am4charts.ValueAxis());
     valueAxis.min = 0;
     valueAxis.renderer.ticks.template.disabled = false;
@@ -160,23 +182,21 @@ export class AppComponent implements OnInit {
     image.propertyFields.fill = "color";
     image.filters.push(new am4core.DropShadowFilter());
 
-    // CE QUI EST INDIQUE SUR LES BAR
-
     var serieLabel = series.bullets.push(new am4charts.LabelBullet());
 
-    serieLabel.label.text = "[bold]{total}[/b] {scenarioName} - {providerRegionCode}";
+    serieLabel.label.text = "[bold]${total}[/b] {scenarioName} - {providerRegionCode}";
     serieLabel.label.hideOversized = false;
     serieLabel.label.horizontalCenter = "right";
     serieLabel.label.dx = -25;
     serieLabel.label.fill = am4core.color("#ffffff");
     serieLabel.label.cursorOverStyle = am4core.MouseCursorStyle.pointer;
     serieLabel.interactionsEnabled = false;
-  } 
+  }
 
   nextQuotation() {
 
     this.quotations.forEach(quotation => {
-
+      
       this.chart.addData({
         "id": this.quotation_id,
         "total": quotation.pricesSummary.monthlyPriceAverage,
@@ -192,7 +212,6 @@ export class AppComponent implements OnInit {
       });
 
       this.chart.dataSource.load();
-
       this.chart.validateData();
       this.chart.validateRawData();
       this.categoryAxis.zoomToIndexes(this.chart.data.length - 12, this.chart.data.length);
