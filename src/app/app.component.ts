@@ -121,8 +121,8 @@ export class AppComponent implements OnInit {
     this.imageSeries.heatRules.push({
       "target": circle,
       "property": "radius",
-      "min": 7,
-      "max": 20,
+      "min": 14,
+      "max": 10,
       "dataField": "value"
     });
 
@@ -225,32 +225,29 @@ export class AppComponent implements OnInit {
       if (element.city == cityName) {
         if (element.presences[0] == false ) {
           element.presences[0] = true;
-          /* console.log("premier doublon de la ville de :" + cityName); */
           latAndLong = {
-            latitude: 0.1,
-            longitude: 1
+            latitude: 0, // y
+            longitude: 0.6 // x
           }
         }
         else if (element.presences[1] == false && element.presences[0] == true ) {
           element.presences[1] = true;
-          /* console.log("deuxieme doublon de la ville de :" + cityName); */
           latAndLong = {
-            latitude: 2,
-            longitude: 1
+            latitude: 1,
+            longitude: 0
           }
         }
         else if (element.presences[2] == false && element.presences[1] == true) {
           element.presences[2] = true;
-          /* console.log("troisieme doublon de la ville de :" + cityName); */
           latAndLong = {
             latitude: -0.5,
-            longitude: 1
+            longitude: 0.5
           }
         }
         else {
           latAndLong = {
-            latitude: -0.7,
-            longitude: 0.3
+            latitude:  -0.5,
+            longitude: -0.5
           }
         }
       }
