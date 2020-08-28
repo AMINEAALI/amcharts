@@ -62,7 +62,7 @@ export class AppComponent implements OnInit {
       else if (this.completionPercent == 100) {
         this.index_quotation = API_response.results.length;
         this.nextQuotation();
-        console.log(this.array_no_overlap);
+        console.log(this.chart.data);
         clearInterval(id_of_interval);
       }
 
@@ -104,19 +104,25 @@ export class AppComponent implements OnInit {
     this.imageSeries.mapImages.template.propertyFields.longitude = "longitude";
     this.imageSeries.mapImages.template.propertyFields.latitude = "latitude";
     this.imageSeries.mapImages.template.propertyFields.fill = "color";
+    this.imageSeries.interpolationDuration = 1000;
+    this.imageSeries.defaultState.transitionDuration = 1000;
+    this.imageSeries.hiddenState.transitionDuration = 1000;
 
     var imageSeriesTemplate = this.imageSeries.mapImages.template;
     imageSeriesTemplate.layout = "absolute";
     imageSeriesTemplate.isMeasured = true;
 
+    var imageHoverState = imageSeriesTemplate.states.create("hover");
+    imageHoverState.properties.fillOpacity = 1;
+
     var circle = imageSeriesTemplate.createChild(am4core.Circle);
     circle.radius = 10;
     circle.stroke = am4core.color("#FFFFFF");
-    circle.fillOpacity = 0.7;
     circle.strokeWidth = 2;
     circle.strokeOpacity = 0.7;
     circle.nonScaling = true;
-    circle.tooltipText = "{city} - {value}";
+    /* circle.tooltipText = "{city} - {value}"; */
+    circle.tooltipHTML = "<img src='../assets/images/{provider}-mapicon.png' width='25' height='25' />{city} - {value}";
 
     this.imageSeries.heatRules.push({
       "target": circle,
@@ -126,15 +132,13 @@ export class AppComponent implements OnInit {
       "dataField": "value"
     });
 
-    circle.events.on("inited", (event: any) => {
-      this.animateBullet(event.target.circle);
-    })
+    /* var circle2 = imageSeriesTemplate.createChild(am4core.Circle);
+    circle2.radius = 2;
+    circle2.propertyFields.fill = "color"; */
 
-
-    // Set fillOpacity to 1 when hovered
-    /*    var hoverStateMap = polygonTemplate.states.create("hover");
-       hoverStateMap.properties.fillOpacity = 1; */
-
+    /* circle2.events.on("inited", (event) => {
+      this.animateBullet(event.target);
+    }); */
 
     // ---------------- BAR CHART ------------ //
 
@@ -145,6 +149,8 @@ export class AppComponent implements OnInit {
     this.chart.width = 1000;
     this.chart.zoomOutButton.disabled = true;
 
+    this.chart.legend = new am4charts.Legend();
+
     this.chart.scrollbarY = new am4core.Scrollbar();
     this.chart.scrollbarY.startGrip.disabled = true;
     this.chart.scrollbarY.endGrip.disabled = true;
@@ -154,9 +160,9 @@ export class AppComponent implements OnInit {
     this.chart.mouseWheelBehavior = "panY";
 
     this.categoryAxis = this.chart.yAxes.push(new am4charts.CategoryAxis());
-    this.categoryAxis.renderer.labels.template.disabled = true;
     this.categoryAxis.dataFields.category = "id";
     this.categoryAxis.renderer.grid.template.location = 0;
+    this.categoryAxis.renderer.labels.template.disabled = true;
     this.categoryAxis.renderer.grid.template.disabled = true;
 
     let valueAxis = this.chart.xAxes.push(new am4charts.ValueAxis());
@@ -165,44 +171,43 @@ export class AppComponent implements OnInit {
     valueAxis.renderer.labels.template.fill = am4core.color("#303030");
     valueAxis.renderer.grid.template.disabled = true;
     valueAxis.rangeChangeEasing = am4core.ease.linear;
-    valueAxis.rangeChangeDuration = 1000;
+    valueAxis.rangeChangeDuration = 500;
+    
+    let amazonSerie = this.createSerie("aws");
+    let ovhSerie = this.createSerie("ovh");
+    let googleSerie = this.createSerie("google");
+    let azureSerie = this.createSerie("azure");
+    let onpremSerie = this.createSerie("onprem");
 
-    let series = this.chart.series.push(new am4charts.ColumnSeries());
-    series.columns.template.propertyFields.fill = "color";
-    series.columns.template.propertyFields.stroke = "color";
-    series.columns.template.focusable = true;
-    series.columns.template.column.fillOpacity = .7;
-    series.columns.template.column.cornerRadiusTopRight = 3;
-    series.columns.template.tooltipText = "{country} - {location}";
-    series.columns.template.column.cornerRadiusBottomRight = 3;
-    series.columns.template.cursorOverStyle = am4core.MouseCursorStyle.pointer;
-    series.dataFields.valueX = "total";
-    series.dataFields.categoryY = "id";
-    series.clustered = false;
-    series.interpolationDuration = 1000;
-    series.interpolationEasing = am4core.ease.linear;
+    this.createHoverState(amazonSerie);
+    this.createHoverState(ovhSerie);
+    this.createHoverState(googleSerie);
+    this.createHoverState(azureSerie);
+    this.createHoverState(onpremSerie);
 
-    let hoverState = series.columns.template.column.states.create("hover");
-    hoverState.properties.cornerRadiusTopLeft = 0;
-    hoverState.properties.cornerRadiusTopRight = 0;
-    hoverState.properties.fillOpacity = 1;
+    this.createBullet(amazonSerie);
+    this.createBullet(ovhSerie);
+    this.createBullet(googleSerie);
+    this.createBullet(azureSerie);
+    this.createBullet(onpremSerie);
 
-    this.categoryAxis.sortBySeries = series;
+    this.createSerieLabel(amazonSerie);
+    this.createSerieLabel(ovhSerie);
+    this.createSerieLabel(googleSerie);
+    this.createSerieLabel(azureSerie);
+    this.createSerieLabel(onpremSerie);
+  }
 
-    let bullet = series.bullets.push(new am4charts.Bullet());
-    let image = bullet.createChild(am4core.Image);
-    image.horizontalCenter = "middle";
-    image.verticalCenter = "bottom";
-    image.dy = 20;
-    image.height = 30;
-    image.y = am4core.percent(100);
-    image.propertyFields.href = "bullet";
-    image.tooltipText = series.columns.template.tooltipText;
-    image.propertyFields.fill = "color";
-    image.filters.push(new am4core.DropShadowFilter());
+  animateBullet(circle: any) {
+    var animation = circle.animate([{ property: "scale", from: 1, to: 5 }, { property: "opacity", from: 1, to: 0 }], 1000, am4core.ease.circleOut);
+    animation.events.on("animationended", (event) => {
+      this.animateBullet(event.target.object);
+    });
+  }
 
-    var serieLabel = series.bullets.push(new am4charts.LabelBullet());
-
+  createSerieLabel(serie: any) {
+    console.log(serie);
+    var serieLabel = serie.bullets.push(new am4charts.LabelBullet());
     serieLabel.label.text = "[bold]${total}[/b] {scenarioName} - {providerRegionCode}";
     serieLabel.label.hideOversized = false;
     serieLabel.label.horizontalCenter = "right";
@@ -212,12 +217,47 @@ export class AppComponent implements OnInit {
     serieLabel.interactionsEnabled = false;
   }
 
-  animateBullet(bullet: any) {
-    let animation = bullet.animate([{ property: "scale", from: 1, to: 5 }, { property: "opacity", from: 1, to: 0 }], 1000, am4core.ease.circleOut);
-    animation.events.on("animationended", function(event){
-      this.animateBullet(event.target.object);
-    })
-}
+  createBullet(serie: any) {
+    var bullet = serie.bullets.push(new am4charts.Bullet());
+    let image = bullet.createChild(am4core.Image);
+    image.horizontalCenter = "middle";
+    image.verticalCenter = "bottom";
+    image.dy = 20;
+    image.height = 30;
+    image.y = am4core.percent(100);
+    image.propertyFields.href = "bullet";
+    image.tooltipText = serie.columns.template.tooltipText;
+    image.propertyFields.fill = "color";
+    image.filters.push(new am4core.DropShadowFilter());
+  }
+
+  createHoverState(serie: any) {
+    var hoverState = serie.columns.template.column.states.create("hover");
+    hoverState.properties.cornerRadiusTopLeft = 0;
+    hoverState.properties.cornerRadiusTopRight = 0;
+    hoverState.properties.fillOpacity = 1;
+  }
+  
+  createSerie(provider: string) {
+    var serie = this.chart.series.push(new am4charts.ColumnSeries());
+    serie.columns.template.propertyFields.fill = "color";
+    serie.columns.template.propertyFields.stroke = "color";
+    serie.columns.template.focusable = true;
+    serie.name = provider;
+    serie.defaultState.transitionDuration = 500;
+    serie.hiddenState.transitionDuration = 500;
+    serie.interpolationDuration = 500;
+    serie.columns.template.column.fillOpacity = .7;
+    serie.columns.template.column.cornerRadiusTopRight = 3;
+    serie.columns.template.tooltipText = "{country} - {location}";
+    serie.columns.template.column.cornerRadiusBottomRight = 3;
+    serie.columns.template.cursorOverStyle = am4core.MouseCursorStyle.pointer;
+    serie.dataFields.valueX = provider+"Total";
+    serie.dataFields.categoryY = "id";
+    serie.clustered = false;
+    serie.interpolationEasing = am4core.ease.linear;
+    return serie;
+  }
 
   getLatitudeAndLongitude(cityName: string) {
     let latAndLong: any;
@@ -247,7 +287,7 @@ export class AppComponent implements OnInit {
         else {
           latAndLong = {
             latitude:  -0.5,
-            longitude: -0.5
+            longitude: -0.2
           }
         }
       }
@@ -272,11 +312,9 @@ export class AppComponent implements OnInit {
 
             if (this.array_no_overlap.length > 0) {
               this.array_no_overlap.forEach(element => {
-                if (element.city == quotation.cityName) {
+                if (element.city == quotation.cityName) 
                   cityAlreadyExistinArray = true;
-                  console.log("J'existe deja " + element.city);
-                }
-              }) 
+              });
             }
 
             if (cityAlreadyExistinArray == false ) {
@@ -290,11 +328,8 @@ export class AppComponent implements OnInit {
 
             latitude = quotation.latitude + latandlong.latitude;
             longitude = quotation.longitude + latandlong.longitude;
-
-            /* console.log(latitude);
-            console.log(longitude); */
           }
-        })
+        });
       }
 
       this.imageSeries.addData({
@@ -306,22 +341,36 @@ export class AppComponent implements OnInit {
         "value": quotation.pricesSummary.monthlyPriceAverage,
         "city": quotation.cityName,
         "currency": quotation.pricesSummary.currency,
-        "color": this.providers[quotation.provider].color
+        "color": this.providers[quotation.provider].color,
+        "provider": quotation.provider
       });
 
-      this.chart.addData({
+      let newChartData: any = {
         "id": this.quotation_id,
-        "total": quotation.pricesSummary.monthlyPriceAverage,
         "location": quotation.cityName,
         "providerRegionCode": quotation.providerRegionCode.charAt(0).toUpperCase() + quotation.providerRegionCode.slice(1),
         "country": quotation.countryName,
         "provider": this.providers[quotation.provider].smallIcon,
+        "total": quotation.pricesSummary.monthlyPriceAverage,
         "providerName": quotation.provider,
         "color": this.providers[quotation.provider].color,
         "bullet": this.providers[quotation.provider].smallIcon,
         "opacity": 1,
         "scenarioName": quotation.scenarioName
-      });
+      }
+
+      if (quotation.provider == "aws")
+        newChartData.awsTotal = quotation.pricesSummary.monthlyPriceAverage;
+      else if (quotation.provider == "ovh")
+        newChartData.ovhTotal = quotation.pricesSummary.monthlyPriceAverage;
+      else if (quotation.provider == "google")
+        newChartData.googleTotal = quotation.pricesSummary.monthlyPriceAverage;
+      else if (quotation.provider == 'onprem') 
+        newChartData.onpremTotal = quotation.pricesSummary.monthlyPriceAverage;
+      else if (quotation.provider == 'azure')
+        newChartData.azureTotal = quotation.pricesSummary.monthlyPriceAverage;
+
+      this.chart.addData(newChartData);
 
       this.chart.dataSource.load();
       this.chart.validateData();
