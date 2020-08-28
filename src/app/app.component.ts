@@ -3,8 +3,6 @@ import { Component, OnInit } from '@angular/core';
 import * as am4core from "@amcharts/amcharts4/core";
 import * as am4charts from "@amcharts/amcharts4/charts";
 import * as am4maps from "@amcharts/amcharts4/maps";
-/* import am4geodata_worldHigh from "@amcharts/amcharts4-geodata/worldHigh"; */
-import * as am4plugins_overlapBuster from "@amcharts/amcharts4/plugins/overlapBuster";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 import am4geodata_continentsHigh from "@amcharts/amcharts4-geodata/continentsHigh";
 
@@ -28,15 +26,14 @@ export class AppComponent implements OnInit {
   i: number = 1;
   quotation_id: number = 1;
   index_quotation: number = 0;
+  completionPercent: number;
 
   chart: am4charts.XYChart;
   mapChart: am4maps.MapChart;
   imageSeries: am4maps.MapImageSeries;
   categoryAxis: am4charts.CategoryAxis;
-  completionPercent: number;
 
-  min: number;
-  max: number;
+  array_no_overlap: Array<any> = [];
 
   ngOnInit() {
 
@@ -64,9 +61,8 @@ export class AppComponent implements OnInit {
       }
       else if (this.completionPercent == 100) {
         this.index_quotation = API_response.results.length;
-        this.calculateMaxAndMin(API_response.results);
-        console.log(this.mapChart.data)
         this.nextQuotation();
+        console.log(this.array_no_overlap);
         clearInterval(id_of_interval);
       }
 
@@ -107,33 +103,37 @@ export class AppComponent implements OnInit {
     this.imageSeries.dataFields.value = "value";
     this.imageSeries.mapImages.template.propertyFields.longitude = "longitude";
     this.imageSeries.mapImages.template.propertyFields.latitude = "latitude";
+    this.imageSeries.mapImages.template.propertyFields.fill = "color";
 
     var imageSeriesTemplate = this.imageSeries.mapImages.template;
+    imageSeriesTemplate.layout = "absolute";
+    imageSeriesTemplate.isMeasured = true;
+
     var circle = imageSeriesTemplate.createChild(am4core.Circle);
     circle.radius = 10;
-    circle.fill = am4core.color("#B27799");
-    circle.fillOpacity = 0.7;
     circle.stroke = am4core.color("#FFFFFF");
+    circle.fillOpacity = 0.7;
     circle.strokeWidth = 2;
     circle.strokeOpacity = 0.7;
     circle.nonScaling = true;
     circle.tooltipText = "{city} - {value}";
 
-    imageSeriesTemplate.layout = "absolute";
-    imageSeriesTemplate.isMeasured = true;
-    var overlap = this.mapChart.plugins.push(new am4plugins_overlapBuster.OverlapBuster());
-    overlap.targets.push(this.imageSeries.mapImages.template);
-
     this.imageSeries.heatRules.push({
-      target: circle,
-      min: 10,
-      max: 25,
-      property: "radius"
+      "target": circle,
+      "property": "radius",
+      "min": 7,
+      "max": 20,
+      "dataField": "value"
     });
 
+    circle.events.on("inited", (event: any) => {
+      this.animateBullet(event.target.circle);
+    })
+
+
     // Set fillOpacity to 1 when hovered
-    /*     var hoverStateMap = polygonTemplate.states.create("hover");
-        hoverStateMap.properties.fillOpacity = 1; */
+    /*    var hoverStateMap = polygonTemplate.states.create("hover");
+       hoverStateMap.properties.fillOpacity = 1; */
 
 
     // ---------------- BAR CHART ------------ //
@@ -191,7 +191,6 @@ export class AppComponent implements OnInit {
 
     let bullet = series.bullets.push(new am4charts.Bullet());
     let image = bullet.createChild(am4core.Image);
-
     image.horizontalCenter = "middle";
     image.verticalCenter = "bottom";
     image.dy = 20;
@@ -213,21 +212,104 @@ export class AppComponent implements OnInit {
     serieLabel.interactionsEnabled = false;
   }
 
+  animateBullet(bullet: any) {
+    let animation = bullet.animate([{ property: "scale", from: 1, to: 5 }, { property: "opacity", from: 1, to: 0 }], 1000, am4core.ease.circleOut);
+    animation.events.on("animationended", function(event){
+      this.animateBullet(event.target.object);
+    })
+}
+
+  getLatitudeAndLongitude(cityName: string) {
+    let latAndLong: any;
+    this.array_no_overlap.forEach(element => {
+      if (element.city == cityName) {
+        if (element.presences[0] == false ) {
+          element.presences[0] = true;
+          /* console.log("premier doublon de la ville de :" + cityName); */
+          latAndLong = {
+            latitude: 0.1,
+            longitude: 1
+          }
+        }
+        else if (element.presences[1] == false && element.presences[0] == true ) {
+          element.presences[1] = true;
+          /* console.log("deuxieme doublon de la ville de :" + cityName); */
+          latAndLong = {
+            latitude: 2,
+            longitude: 1
+          }
+        }
+        else if (element.presences[2] == false && element.presences[1] == true) {
+          element.presences[2] = true;
+          /* console.log("troisieme doublon de la ville de :" + cityName); */
+          latAndLong = {
+            latitude: -0.5,
+            longitude: 1
+          }
+        }
+        else {
+          latAndLong = {
+            latitude: -0.7,
+            longitude: 0.3
+          }
+        }
+      }
+    });
+    return latAndLong;
+  }
+
   nextQuotation() {
 
     this.quotations.forEach(quotation => {
 
-      console.log(quotation);
+      var latitude: number = quotation.latitude;
+      var longitude: number = quotation.longitude;
+
+      if (this.imageSeries.data.length > 0) {
+
+        this.imageSeries.data.forEach(element => {
+
+          if (element.city == quotation.cityName) {
+
+            var cityAlreadyExistinArray: boolean = false;
+
+            if (this.array_no_overlap.length > 0) {
+              this.array_no_overlap.forEach(element => {
+                if (element.city == quotation.cityName) {
+                  cityAlreadyExistinArray = true;
+                  console.log("J'existe deja " + element.city);
+                }
+              }) 
+            }
+
+            if (cityAlreadyExistinArray == false ) {
+              this.array_no_overlap.push({
+                city: element.city,
+                presences: [false, false, false]
+              });
+            }
+
+            var latandlong: any= this.getLatitudeAndLongitude(element.city);
+
+            latitude = quotation.latitude + latandlong.latitude;
+            longitude = quotation.longitude + latandlong.longitude;
+
+            /* console.log(latitude);
+            console.log(longitude); */
+          }
+        })
+      }
 
       this.imageSeries.addData({
-        "latitude": quotation.latitude,
-        "longitude": quotation.longitude,
+        "latitude": latitude,
+        "longitude": longitude,
         "icon": quotation.smallIcon,
         "id": quotation.isoCode,
         "name": quotation.provider,
         "value": quotation.pricesSummary.monthlyPriceAverage,
         "city": quotation.cityName,
-        "currency": quotation.pricesSummary.currency
+        "currency": quotation.pricesSummary.currency,
+        "color": this.providers[quotation.provider].color
       });
 
       this.chart.addData({
@@ -250,23 +332,6 @@ export class AppComponent implements OnInit {
       this.categoryAxis.zoomToIndexes(this.chart.data.length - 12, this.chart.data.length);
       this.quotation_id++;
     });
-
-  }
-
-  calculateMaxAndMin(quotations: any) {
-    quotations.forEach((quotation, index) => {
-      if (index == 0) {
-        this.min = quotation.pricesSummary.monthlyPriceAverage;
-        this.max = quotation.pricesSummary.monthlyPriceAverage;
-      }
-      else if (quotation.pricesSummary.monthlyPriceAverage < this.min)
-        this.min = quotation.pricesSummary.monthlyPriceAverage;
-      else if (quotation.pricesSummary.monthlyPriceAverage > this.max)
-        this.max = quotation.pricesSummary.monthlyPriceAverage;
-    });
-  }
-
-  reSizeCircle() {
 
   }
 }
