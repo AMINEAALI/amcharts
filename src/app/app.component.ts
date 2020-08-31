@@ -70,14 +70,6 @@ export class AppComponent implements OnInit {
         this.index_quotation = API_response.results.length;
         this.nextQuotation();
         this.calculateCheapest();
-        console.log(this.cheapestPrices);
-        /*  this.imageSeries.mapImages.values.forEach((circle: any) => {
-           console.log(circle);
-           this.animateBullet(circle);
-           if (circle.dataItem.dataContext.city == "Eemshaven") {
-             this.animateBullet(circle);
-           }
-         }); */
         clearInterval(id_of_interval);
       }
 
@@ -131,7 +123,6 @@ export class AppComponent implements OnInit {
       var circle2 = imageSeriesTemplate.createChild(am4core.Circle);
       circle2.radius = 1;
       circle2.propertyFields.fill = "color";
-      /* circle2.tooltipText = "{city} - {value}"; */
 
       var circle = imageSeriesTemplate.createChild(am4core.Circle);
       circle.radius = 1;
@@ -140,7 +131,8 @@ export class AppComponent implements OnInit {
       circle.strokeWidth = 2;
       circle.strokeOpacity = 0.7;
       circle.nonScaling = true;
-      circle.tooltipText = "{city} - {value}";
+      /* circle.tooltipText = "{city} - {value}"; */
+      circle.tooltipHTML = '<img src="../assets/images/{name}-mapicon.png" width="25" height="25" style="vertical-align:middle" /><span>{city} - {value}</span>';
 
       circle2.events.on("inited", (event: any) => {
         this.animateBullet(event.target);
@@ -153,11 +145,6 @@ export class AppComponent implements OnInit {
         "max": 10,
         "dataField": "value"
       });
-
-      // Set fillOpacity to 1 when hovered
-      /*    var hoverStateMap = polygonTemplate.states.create("hover");
-         hoverStateMap.properties.fillOpacity = 1; */
-
 
       // ---------------- BAR CHART ------------ //
 
